@@ -1,6 +1,6 @@
-from collections import deque
-from itertools import islice
 from enum import Enum
+from itertools import islice
+import collections
 
 
 def repl():
@@ -19,7 +19,18 @@ def repl():
             i += 1
 
 
-State = Enum("State", ['RUN', 'DEF', 'STRING'])
+State = Enum("State", ['RUN', 'DEF'])
+
+
+def consume(iterator, n):
+    "Advance the iterator n-steps ahead. If n is none, consume entirely."
+    # Use functions that consume iterators at C speed.
+    if n is None:
+        # feed the entire iterator into a zero-length deque
+        collections.deque(iterator, maxlen=0)
+    else:
+        # advance to the empty slice starting at position n
+        next(islice(iterator, n, n), None)
 
 
 class Stack:
@@ -61,11 +72,15 @@ class FourthInterpreter:
         self.stack = []  # deque()
         self.state = State.RUN
         self.functions = {}
+        self.immediates = {}
         self.function_definition = []
-        self.string_definition = ""
+        self.string_definition = None
 
         self.define_word("+", lambda x, y: (x + y,))
         self.define_word("-", lambda x, y: (x - y,))
+        self.define_word("*", lambda x, y: (x * y,))
+        self.define_word("/", lambda x, y: (x / y,))
+        self.define_word("mod", lambda x, y: (x % y,))
         # stack manipulation
         self.define_word("dup", lambda x: (x, x))
         self.define_word("drop", lambda x: None)
@@ -96,49 +111,79 @@ class FourthInterpreter:
 
     def run(self, words):
         function_name = None
-        string = []
+        self.string_definition = None
         for w in words:
-            if self.state == State.RUN:
-                self.eval_word(w)
-            elif self.state == State.DEF:
-                if function_name is None:
-                    function_name = w
-                elif w == ';':
-                    if function_name in self.functions:
-                        print("redefining function", function_name)
-                    self.functions[function_name] = self.function_definition.copy()
-                    function_name = None
-                    self.state = State.RUN
-                else:
-                    self.function_definition.append(w)
-            elif self.state == State.STRING:
-                if w.endswith('"'):
-                    self.string_definition += w[:-1]
-                    print(self.string_definition)
-                    self.state = State.RUN
-                else:
-                    self.string_definition += w + " "
+            if w == '[':
+                self.state = State.RUN
+            elif w == ']':
+                self.state = State.DEF
+            else:
+                if self.state == State.RUN:
+                    if self.string_definition is not None:
+                        if w.endswith('"'):
+                            self.string_definition += w[:-1]
+                            print(self.string_definition)
+                            self.string_definition = None  # break out of string definition
+                        else:
+                            self.string_definition += w + " "
+                    else:
+                        self.eval_word(w, words)
+                elif self.state == State.DEF:
+                    if function_name is None:
+                        function_name = w
+                    elif w == ';':
+                        if function_name in self.functions:
+                            print("redefining function", function_name)
+                        self.functions[function_name] = self.function_definition.copy()
+                        function_name = None
+                        self.state = State.RUN
+                    elif w == 'if':
+                        self.function_definition.append('0branch')
+                        self.stack.append(len(self.function_definition))
+                        self.function_definition.append(0)
+                    elif w == 'then':
+                        update_pos = self.stack.pop()
+                        jump = len(self.function_definition) - update_pos - 1
+                        self.function_definition[update_pos] = jump
+                    elif w == 'else':
+                        update_pos = self.stack.pop()
+                        self.function_definition.append('branch')
+                        self.stack.append(len(self.function_definition))
+                        self.function_definition.append(0)
+                        # fix original if
+                        jump = len(self.function_definition) - update_pos - 1
+                        self.function_definition[update_pos] = jump
+                    else:
+                        print("appending word to function def:", w)
+                        self.function_definition.append(w)
 
-    def eval_word(self, w):
+    def eval_word(self, w, words):
         fn = self.functions.get(w, None)
+        print("evaluating word:", w)
         if fn is not None:
             if callable(fn):
                 fn()
             else:
-                self.run(fn)
+                self.run(iter(fn))
         elif w.isnumeric():
             self.stack.append(number(w))
         elif w == ':':
             self.state = State.DEF
         elif w == '."':
-            self.state = State.STRING
             self.string_definition = ""
+        elif w == "0branch":
+            target = next(words)
+            if self.stack.pop() == 0:
+                consume(words, target)
+        elif w == "branch":
+            target = next(words)
+            consume(words, target)
         else:
             print("?", w)
         # stack.print()
 
     def parse(self, data):
-        words = data.split()
+        words = iter(data.split())
         self.run(words)
         print(list(self.stack))
 
