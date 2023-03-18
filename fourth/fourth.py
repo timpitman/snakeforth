@@ -153,6 +153,14 @@ class FourthInterpreter:
                         # fix original if
                         jump = len(self.function_definition) - update_pos - 1
                         self.function_definition[update_pos] = jump
+                    elif w == 'begin':
+                        self.stack.append(len(self.function_definition))
+                    elif w == 'until':
+                        self.function_definition.append('0branch')
+                        jump = self.stack.pop() - len(self.function_definition) - 1
+                        print("jump:", jump)
+                        self.function_definition.append(jump)
+
                     else:
                         print("appending word to function def:", w)
                         self.function_definition.append(w)
