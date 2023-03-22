@@ -23,7 +23,7 @@ State = Enum("State", ['RUN', 'DEF'])
 
 
 def consume(iterator, n):
-    "Advance the iterator n-steps ahead. If n is none, consume entirely."
+    """Advance the iterator n-steps ahead. If n is none, consume entirely."""
     # Use functions that consume iterators at C speed.
     if n is None:
         # feed the entire iterator into a zero-length deque
@@ -31,40 +31,6 @@ def consume(iterator, n):
     else:
         # advance to the empty slice starting at position n
         next(islice(iterator, n, n), None)
-
-
-class Stack:
-    def __init__(self):
-        self.stack = []  # deque()
-        self.state = State.RUN
-
-    def push(self, data):
-        self.stack.append(data)
-
-    def pop(self):
-        return self.stack.pop()
-
-    def is_empty(self):
-        return len(self.stack) == 0
-
-    def dup(self):
-        self.push(self.stack[-1])
-
-    def swap(self):
-        self.stack[-1], self.stack[-2] = self.stack[-2], self.stack[-1]
-
-    def over(self):
-        self.push(self.stack[-2])
-
-    def rot(self):
-        self.push(self.stack[-3])
-        del self.stack[-4]
-
-    def print(self):
-        print(list(self.stack))
-
-    def top(self):
-        return self.stack[-1]
 
 
 class FourthInterpreter:
@@ -75,12 +41,20 @@ class FourthInterpreter:
         self.immediates = {}
         self.function_definition = []
         self.string_definition = None
-
+        self.commenting = False
+        # define our built-in stack functions
+        # maths
         self.define_word("+", lambda x, y: (x + y,))
         self.define_word("-", lambda x, y: (x - y,))
         self.define_word("*", lambda x, y: (x * y,))
         self.define_word("/", lambda x, y: (x / y,))
         self.define_word("mod", lambda x, y: (x % y,))
+        self.define_word("abs", lambda x: (abs(x),))
+        self.define_word("negate", lambda x: (-x,))
+        self.define_word("min", lambda x, y: (min(x, y),))
+        self.define_word("max", lambda x, y: (max(x, y),))
+        self.define_word("2*", lambda x: (x >> 1,))
+        self.define_word("2/", lambda x: (x << 1,))
         # stack manipulation
         self.define_word("dup", lambda x: (x, x))
         self.define_word("drop", lambda x: None)
@@ -95,7 +69,6 @@ class FourthInterpreter:
         self.define_word("and", lambda x, y: (x & y,))
         self.define_word("or", lambda x, y: (x | y,))
         self.define_word("invert", lambda x: (~x,))
-
         # io
         self.define_word(".", lambda x: print(x, end=''))
         self.define_word("emit", lambda x: print(chr(x), end=''))
@@ -112,11 +85,20 @@ class FourthInterpreter:
     def run(self, words):
         function_name = None
         self.string_definition = None
+        self.commenting = False
         for w in words:
             if w == '[':
                 self.state = State.RUN
             elif w == ']':
                 self.state = State.DEF
+            elif w == '(':
+                self.commenting = True
+            elif self.commenting:
+                if w.endswith(')'):
+                    self.commenting = False
+            elif w == '\\':
+                # drop comment
+                return
             else:
                 if self.state == State.RUN:
                     if self.string_definition is not None:
