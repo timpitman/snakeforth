@@ -35,7 +35,8 @@ def consume(iterator, n):
 
 class FourthInterpreter:
     def __init__(self):
-        self.stack = []  # deque()
+        self.stack = []
+        self.loop_control_stack = []
         self.state = State.RUN
         self.functions = {}
         self.immediates = {}
@@ -77,6 +78,8 @@ class FourthInterpreter:
     def define_word(self, name, function):
         def stack_func():
             num_args = function.__code__.co_argcount
+            if len(self.stack) < num_args:
+                raise IndexError
             self.stack, args = self.stack[:-num_args], self.stack[-num_args:]
             self.stack.extend(function(*args) or tuple())
 
@@ -139,7 +142,7 @@ class FourthInterpreter:
                         self.stack.append(len(self.function_definition))
                     elif w == 'until':
                         self.function_definition.append('0branch')
-                        jump = self.stack.pop() - len(self.function_definition) - 1
+                        jump = self.stack.pop() - len(self.function_definition)
                         print("jump:", jump)
                         self.function_definition.append(jump)
 
@@ -152,7 +155,11 @@ class FourthInterpreter:
         print("evaluating word:", w)
         if fn is not None:
             if callable(fn):
-                fn()
+                try:
+                    fn()
+                except IndexError:
+                    print("End of stack calling function:", w)
+                    print("Stack=", self.stack)
             else:
                 self.run(iter(fn))
         elif w.isnumeric():
