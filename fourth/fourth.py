@@ -38,11 +38,9 @@ class FourthInterpreter:
         self.stack = []
         self.loop_control_stack = []
         self.state = State.RUN
-        self.functions = {}
+        self.words = {}
         self.immediates = {}
         self.function_definition = []
-        self.string_definition = None
-        self.commenting = False
         # define our built-in stack functions
         # maths
         self.define_word("+", lambda x, y: (x + y,))
@@ -83,106 +81,98 @@ class FourthInterpreter:
             self.stack, args = self.stack[:-num_args], self.stack[-num_args:]
             self.stack.extend(function(*args) or tuple())
 
-        self.functions[name] = stack_func
+        self.words[name] = stack_func
 
-    def run(self, words):
-        function_name = None
-        self.string_definition = None
-        self.commenting = False
-        for w in words:
-            if w == '[':
+    def run(self, tokens):
+        ip = 0
+
+        def next_token():
+            nonlocal ip
+            nt = tokens[ip]
+            ip += 1
+            return nt
+
+        while ip < len(tokens):
+            t = next_token()
+            if t == '[':
                 self.state = State.RUN
-            elif w == ']':
+            elif t == ']':
                 self.state = State.DEF
-            elif w == '(':
-                self.commenting = True
-            elif self.commenting:
-                if w.endswith(')'):
-                    self.commenting = False
-            elif w == '\\':
-                # drop comment
-                return
-            else:
-                if self.state == State.RUN:
-                    if self.string_definition is not None:
-                        if w.endswith('"'):
-                            self.string_definition += w[:-1]
-                            print(self.string_definition)
-                            self.string_definition = None  # break out of string definition
-                        else:
-                            self.string_definition += w + " "
-                    else:
-                        self.eval_word(w, words)
-                elif self.state == State.DEF:
-                    if function_name is None:
-                        function_name = w
-                    elif w == ';':
-                        if function_name in self.functions:
-                            print("redefining function", function_name)
-                        self.functions[function_name] = self.function_definition.copy()
-                        function_name = None
-                        self.state = State.RUN
-                    elif w == 'if':
-                        self.function_definition.append('0branch')
-                        self.stack.append(len(self.function_definition))
-                        self.function_definition.append(0)
-                    elif w == 'then':
-                        update_pos = self.stack.pop()
-                        jump = len(self.function_definition) - update_pos - 1
-                        self.function_definition[update_pos] = jump
-                    elif w == 'else':
-                        update_pos = self.stack.pop()
-                        self.function_definition.append('branch')
-                        self.stack.append(len(self.function_definition))
-                        self.function_definition.append(0)
-                        # fix original if
-                        jump = len(self.function_definition) - update_pos - 1
-                        self.function_definition[update_pos] = jump
-                    elif w == 'begin':
-                        self.stack.append(len(self.function_definition))
-                    elif w == 'until':
-                        self.function_definition.append('0branch')
-                        jump = self.stack.pop() - len(self.function_definition)
-                        print("jump:", jump)
-                        self.function_definition.append(jump)
-
-                    else:
-                        print("appending word to function def:", w)
-                        self.function_definition.append(w)
-
-    def eval_word(self, w, words):
-        fn = self.functions.get(w, None)
-        print("evaluating word:", w)
-        if fn is not None:
-            if callable(fn):
+            elif t == '(':
+                # start of comment - need to find the end
                 try:
-                    fn()
-                except IndexError:
-                    print("End of stack calling function:", w)
-                    print("Stack=", self.stack)
+                    ip = tokens.index(')', ip)
+                except ValueError:
+                    raise ValueError("'(' is missing the closing ')' to end the comment")
+            elif t == ':':
+                name = next_token()
+                end_index = tokens.index(';', ip)
+                word_tokens = tokens[ip:end_index]
+                self.words[name.lower()] = word_tokens
+                ip = end_index + 1
+            elif t == '."':
+                # inline string print
+                string_definition = ""
+                t2 = t
+                while not t2.endswith('"'):
+                    t2 = next_token()
+                    string_definition += t2 + " "
+                string_definition += t2[:-1]
+                print(string_definition)
             else:
-                self.run(iter(fn))
-        elif w.isnumeric():
-            self.stack.append(number(w))
-        elif w == ':':
-            self.state = State.DEF
-        elif w == '."':
-            self.string_definition = ""
-        elif w == "0branch":
-            target = next(words)
-            if self.stack.pop() == 0:
-                consume(words, target)
-        elif w == "branch":
-            target = next(words)
-            consume(words, target)
-        else:
-            print("?", w)
-        # stack.print()
+                fn = self.words.get(t, None)
+                print("evaluating word:", t)
+                if fn is not None:
+                    if callable(fn):
+                        try:
+                            fn()
+                        except IndexError:
+                            print("End of stack calling function:", t)
+                            print("Stack=", self.stack)
+                    else:
+                        self.run(fn)
+                elif t.isnumeric():
+                    self.stack.append(number(t))
+                elif t == 'if':
+                    true_branch_end = tokens.index('else', ip)
+                    false_branch_end = tokens.index('then', true_branch_end + 1)
+                    if self.stack.pop() != 0:
+                        self.run(tokens[ip:true_branch_end])
+                    else:
+                        self.run(tokens[true_branch_end + 1:false_branch_end])
+                    ip = false_branch_end + 1
+                elif t == 'do':
+                    end_index = tokens.index('loop', ip)
+                    limit = self.stack.pop()
+                    index = self.stack.pop()
+                    while index < limit:
+                        self.run(tokens[ip:end_index])
+                        index += 1
+                    ip = end_index + 1
+                elif t == 'begin':
+                    while_index = tokens.index('while', ip)
+                    repeat_index = tokens.index('repeat', while_index + 1)
+                    while True:
+                        self.run(tokens[ip:while_index])
+                        if self.stack.pop() == 0:
+                            break
+                        self.run(tokens[while_index + 1:repeat_index])
+                    ip = repeat_index + 1
+                else:
+                    print("unknown word: ", t)
 
     def parse(self, data):
-        words = iter(data.split())
-        self.run(words)
-        print(list(self.stack))
+        # create a list of tokens, stripping any line comments
+        tokens = []
+        lines = data.splitlines()
+        for line in lines:
+            line_tokens = line.split()
+            # strip out line comments
+            if '//' in line_tokens:
+                line_tokens = line_tokens[:line_tokens.index('//')]
+            tokens += line_tokens
+        self.run(tokens)
+        print(self.stack)
 
 
 def number(s):
