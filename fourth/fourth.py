@@ -2,9 +2,30 @@ from enum import Enum
 from itertools import islice
 import collections
 
+program_fact = """
+: factorial
+  dup 1 >
+  if
+    dup 1 -
+    factorial *
+  else
+    drop 1
+  then
+;
+"""
 
-def repl():
-    interpreter = FourthInterpreter()
+program_fact_loop = """
+: factorial
+   DUP 2 < IF DROP 1 EXIT THEN 
+   DUP 
+   BEGIN DUP 2 > WHILE 
+   1- SWAP OVER * SWAP 
+   REPEAT DROP 
+;
+"""
+
+
+def repl(interpreter):
     i = 0
     while True:
         try:
@@ -54,6 +75,8 @@ class FourthInterpreter:
         self.define_word("max", lambda x, y: (max(x, y),))
         self.define_word("2*", lambda x: (x >> 1,))
         self.define_word("2/", lambda x: (x << 1,))
+        self.define_word("1+", lambda x: (x + 1,))
+        self.define_word("1-", lambda x: (x - 1,))
         # stack manipulation
         self.define_word("dup", lambda x: (x, x))
         self.define_word("drop", lambda x: None)
@@ -99,9 +122,10 @@ class FourthInterpreter:
             elif t == ']':
                 self.state = State.DEF
             elif t == '(':
+                print("found comment")
                 # start of comment - need to find the end
                 try:
-                    ip = tokens.index(')', ip)
+                    ip = tokens.index(')', ip) + 1
                 except ValueError:
                     raise ValueError("'(' is missing the closing ')' to end the comment")
             elif t == ':':
@@ -134,13 +158,23 @@ class FourthInterpreter:
                 elif t.isnumeric():
                     self.stack.append(number(t))
                 elif t == 'if':
-                    true_branch_end = tokens.index('else', ip)
-                    false_branch_end = tokens.index('then', true_branch_end + 1)
-                    if self.stack.pop() != 0:
-                        self.run(tokens[ip:true_branch_end])
+                    then_ip = tokens.index('then', ip)
+                    # see if we have an else in the middle
+                    try:
+                        else_ip = tokens.index('else', ip, then_ip)
+                    except ValueError:
+                        # if statement without else
+                        else_ip = -1
+
+                    if else_ip == -1:
+                        if self.stack.pop() != 0:
+                            self.run(tokens[ip:then_ip])
                     else:
-                        self.run(tokens[true_branch_end + 1:false_branch_end])
-                    ip = false_branch_end + 1
+                        if self.stack.pop() != 0:
+                            self.run(tokens[ip:else_ip])
+                        else:
+                            self.run(tokens[else_ip + 1:then_ip])
+                    ip = then_ip + 1
                 elif t == 'do':
                     end_index = tokens.index('loop', ip)
                     limit = self.stack.pop()
@@ -158,15 +192,19 @@ class FourthInterpreter:
                             break
                         self.run(tokens[while_index + 1:repeat_index])
                     ip = repeat_index + 1
+                elif t == 'recurse':
+                    self.run(tokens)
+                elif t == 'exit':
+                    return
                 else:
                     print("unknown word: ", t)
 
     def parse(self, data):
-        # create a list of tokens, stripping any line comments
+        # create a list of lowercase tokens, stripping any line comments
         tokens = []
         lines = data.splitlines()
         for line in lines:
-            line_tokens = line.split()
+            line_tokens = line.lower().split()
             # strip out line comments
             if '//' in line_tokens:
                 line_tokens = line_tokens[:line_tokens.index('//')]
@@ -183,4 +221,6 @@ def number(s):
 
 
 if __name__ == "__main__":
-    repl()
+    interpreter = FourthInterpreter()
+    interpreter.parse(program_fact_loop)
+    repl(interpreter)
