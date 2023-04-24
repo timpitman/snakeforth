@@ -24,6 +24,75 @@ program_fact_loop = """
 ;
 """
 
+program_fft="""
+\ Complex arithmetic words
+: c+ ( r1 i1 r2 i2 -- r3 i3 )
+  rot + swap rot + swap ;
+
+: c* ( r1 i1 r2 i2 -- r3 i3 )
+  over over * swap over * swap
+  rot over * - swap
+  rot over * + ;
+
+: cswap ( r1 i1 r2 i2 -- r2 i2 r1 i1 )
+  rot swap rot swap ;
+
+\ Bit reversal
+: bit-reverse ( n bit_length -- n_reversed )
+  0 swap 0
+  do
+    over 1 and if
+      swap 1 + swap
+    else
+      2drop 1
+    then
+    swap 2/ swap 1 +
+  loop
+  swap drop ;
+
+: fft ( n -- )
+  \ Bit-reversal reordering
+  1
+  2dup 1 - 0
+  do
+    2dup i bit-reverse =
+    if
+      2drop
+    else
+      4 * i 4 * cswap
+    then
+    1 +
+  loop
+
+  \ FFT
+  1
+  2dup
+  do
+    1
+    i 2 / 0
+    do
+      0
+      2dup
+      do
+        2dup j 4 * 2dup i 4 * +
+        2dup i 2/ 2mod 1 and 0= if
+          1e0 0e0
+        else
+          2 * pi i 2/ / fsin fcos
+        then
+        c* c+
+        2dup 2 / 2mod i 4 * + cswap
+        2dup i 4 * + cswap
+        4 +
+      +loop
+      2drop
+    loop
+    2 *
+  loop
+  2drop ;
+"""
+
+
 
 def repl(interpreter):
     i = 0
@@ -79,7 +148,9 @@ class FourthInterpreter:
         self.define_word("1-", lambda x: (x - 1,))
         # stack manipulation
         self.define_word("dup", lambda x: (x, x))
+        self.define_word("2dup", lambda x, y: (x, y, x, y))
         self.define_word("drop", lambda x: None)
+        self.define_word("2drop", lambda x, y: None)
         self.define_word("swap", lambda x, y: (y, x))
         self.define_word("rot", lambda x, y, z: (y, z, x))
         self.define_word("over", lambda x, y: (x, y, x))
@@ -90,7 +161,10 @@ class FourthInterpreter:
         # bitwise
         self.define_word("and", lambda x, y: (x & y,))
         self.define_word("or", lambda x, y: (x | y,))
+        self.define_word("xor", lambda x, y: (x ^ y,))
         self.define_word("invert", lambda x: (~x,))
+        self.define_word("lshift", lambda x, y: (x << y,))
+        self.define_word("rshift", lambda x, y: (x >> y,))
         # io
         self.define_word(".", lambda x: print(x, end=''))
         self.define_word("emit", lambda x: print(chr(x), end=''))
@@ -206,8 +280,8 @@ class FourthInterpreter:
         for line in lines:
             line_tokens = line.lower().split()
             # strip out line comments
-            if '//' in line_tokens:
-                line_tokens = line_tokens[:line_tokens.index('//')]
+            if '\\' in line_tokens:
+                line_tokens = line_tokens[:line_tokens.index('\\')]
             tokens += line_tokens
         self.run(tokens)
         print(self.stack)
@@ -222,5 +296,7 @@ def number(s):
 
 if __name__ == "__main__":
     interpreter = FourthInterpreter()
-    interpreter.parse(program_fact_loop)
+    interpreter.parse(program_fft)
+    #interpreter.parse("1e0 0e0 2e0 0e0 3e0 0e0 4e0 0e0 4 fft")
+    interpreter.parse("1 0 2 0 3 0 4 0 4 fft")
     repl(interpreter)
