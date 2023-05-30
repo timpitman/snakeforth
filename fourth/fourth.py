@@ -307,6 +307,21 @@ class FourthInterpreter:
                     jump = self.stack.pop() - len(self.function_definition) - 1
                     print("jump:", jump)
                     self.function_definition.append(jump)
+                elif t == 'while':
+                    dest = self.stack.pop()
+                    self.function_definition.append('0branch')
+                    self.stack.append(len(self.function_definition))
+                    self.function_definition.append(0)
+                    self.stack.append(dest)
+                elif t == 'repeat':
+                    self.function_definition.append('branch')
+                    jump = self.stack.pop() - len(self.function_definition)
+                    print("jump:", jump)
+                    self.function_definition.append(jump)
+                    update_pos = self.stack.pop()
+                    jump = len(self.function_definition) - update_pos - 1
+                    self.function_definition[update_pos] = jump
+                    print("then updating prev while=", jump)
                 else:
                     print("appending word to function def:", t)
                     self.function_definition.append(t)
@@ -328,7 +343,7 @@ class FourthInterpreter:
 
 if __name__ == "__main__":
     interpreter = FourthInterpreter()
-    interpreter.parse(program_fact)
+    interpreter.parse(program_fact_loop)
     # interpreter.parse("1e0 0e0 2e0 0e0 3e0 0e0 4e0 0e0 4 fft")
     # interpreter.parse("1 0 2 0 3 0 4 0 4 fft")
     repl(interpreter)
