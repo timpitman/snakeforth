@@ -254,7 +254,8 @@ class FourthInterpreter:
                     if self.stack.pop() == 0:
                         ip += target
                 elif t == "branch":
-                    ip += next_token()
+                    target = next_token()
+                    ip += target
                 elif t == 'recurse':
                     self.run(tokens)
                 elif t == 'exit':
@@ -288,7 +289,7 @@ class FourthInterpreter:
                     self.function_definition.append(0)
                 elif t == 'then':
                     update_pos = self.stack.pop()
-                    jump = len(self.function_definition) - update_pos
+                    jump = len(self.function_definition) - update_pos - 1
                     self.function_definition[update_pos] = jump
                     print("then updating prev jump=", jump)
                 elif t == 'else':
@@ -315,7 +316,7 @@ class FourthInterpreter:
                     self.stack.append(dest)
                 elif t == 'repeat':
                     self.function_definition.append('branch')
-                    jump = self.stack.pop() - len(self.function_definition)
+                    jump = self.stack.pop() - len(self.function_definition) - 1
                     print("jump:", jump)
                     self.function_definition.append(jump)
                     update_pos = self.stack.pop()
