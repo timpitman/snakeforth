@@ -12,6 +12,11 @@ python = "^3.11"
 [tool.poetry.group.test.dependencies]
 pytest = "^7.3.1"
 
+
+[tool.poetry.group.dev.dependencies]
+pyright = "^1.1.374"
+black = "^24.8.0"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
