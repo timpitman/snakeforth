@@ -1,5 +1,5 @@
 import pytest
-from fourth.fourth import FourthInterpreter
+from snakeforth.snakeforth import FourthInterpreter
 
 program_fact_loop = """
 : factorial

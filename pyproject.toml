@@ -1,22 +1,17 @@
-[tool.poetry]
-name = "fourth"
+[project]
+name = "snakeforth"
 version = "0.1.0"
-description = ""
-authors = ["Your Name <you@example.com>"]
+description = "SnakeForth is a simple forth interpreter implemented in Python"
 readme = "README.md"
-
-[tool.poetry.dependencies]
-python = "^3.11"
-
-
-[tool.poetry.group.test.dependencies]
-pytest = "^7.3.1"
-
-
-[tool.poetry.group.dev.dependencies]
-pyright = "^1.1.374"
-black = "^24.8.0"
+requires-python = ">=3.12"
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=8.3.3",
+    "black>=24.8.0",
+    "pyright>=1.1.382.post1",
+]

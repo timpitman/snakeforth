@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 DEMO_PROGRAM = """
-( calculate factorial using a while loop )
+\\ calculate factorial using a while loop
 : factorial
    DUP 2 < IF DROP 1 EXIT THEN 
    DUP 
@@ -22,12 +22,13 @@ DEMO_PROGRAM = """
 def repl(interpreter):
     i = 0
     while True:
-        print()
+        # print()
         try:
-            data: str = input(f"({i}): ")
+            data: str = input(f"\n({i}): ")
             interpreter.parse(data)
         except EOFError:  # handling ctrl + D
-            print()
+            # pass
+            print("???")
         except KeyboardInterrupt:  # handling ctrl + C
             print("bye")
             break
@@ -128,13 +129,14 @@ class FourthInterpreter:
 
         self.words[name] = stack_func
 
-    def run(self, tokens):
+    def run(self, tokens: list[str]) -> None:
         self.state = State.RUN
         self.function_name = None
         self.function_definition = []
-        ip = 0
+        ip = 0  # instruction pointer indexes the next token
 
         def next_token():
+            """helper to pull the next token"""
             nonlocal ip
             nt = tokens[ip]
             ip += 1
@@ -170,6 +172,7 @@ class FourthInterpreter:
                         string_definition += t2 + " "
                     string_definition += t2[:-1]
                     print(string_definition)
+                # search words for this token
                 fn = self.words.get(t, None)
                 logger.debug("evaluating word: %s", t)
                 if fn is not None:
@@ -185,11 +188,11 @@ class FourthInterpreter:
                     else:
                         self.run(fn)
                 elif t == "0branch":
-                    target = next_token()
+                    target = int(next_token())
                     if self.stack.pop() == 0:
                         ip += target
                 elif t == "branch":
-                    target = next_token()
+                    target = int(next_token())
                     ip += target
                 elif t == "recurse":
                     self.run(tokens)
@@ -271,7 +274,7 @@ class FourthInterpreter:
                     self.function_definition.append(t)
             logger.debug(self.stack)
 
-    def parse(self, data: str):
+    def parse(self, data: str) -> None:
         # create a list of lowercase tokens, stripping any line comments
         tokens = []
         lines = data.splitlines()
