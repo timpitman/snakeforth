@@ -20,6 +20,9 @@ DEMO_PROGRAM = """
 
 
 def repl(interpreter):
+    """
+    a simple repl environment to use the interpreter from the terminal
+    """
     i = 0
     while True:
         # print()
@@ -37,11 +40,12 @@ def repl(interpreter):
 
 
 class State(Enum):
-    RUN = auto()
-    DEF = auto()
+    """ model the interpreter state - running or defining"""
+    RUN = auto()  # running
+    DEF = auto()  # defining
 
 
-class FourthInterpreter:
+class ForthInterpreter:
     def __init__(self):
         self.stack = []
         self.control_stack = []
@@ -51,8 +55,11 @@ class FourthInterpreter:
         self.state = State.RUN
         self.function_name = None
         self.function_definition = []
-        # define our built-in stack functions
-        # maths
+
+        self.define_builtins()
+
+    def define_builtins(self):
+        """ define our built-in stack functions """
         self.define_word("+", lambda x, y: (x + y,))
         self.define_word("-", lambda x, y: (x - y,))
         self.define_word("*", lambda x, y: (x * y,))
@@ -95,6 +102,8 @@ class FourthInterpreter:
         # variable access
         self.define_word("!", lambda x, y: self.variable_store(x, y))
         self.define_word("@", lambda x: (self.variable_fetch(x),))
+        # debugging
+        self.define_word(".s", lambda: self.print_stack())
 
     def variable_store(self, x, y):
         self.variables[y] = x
@@ -129,6 +138,11 @@ class FourthInterpreter:
 
         self.words[name] = stack_func
 
+    def print_stack(self):
+        # .S command to debug the stack by printing it
+        stack_contents = " ".join(map(str, self.stack))
+        print(f"<{len(self.stack)}> {stack_contents}")
+
     def run(self, tokens: list[str]) -> None:
         self.state = State.RUN
         self.function_name = None
@@ -145,7 +159,6 @@ class FourthInterpreter:
         while ip < len(tokens):
             t = next_token()
             if t == "(":
-                logger.debug("found comment")
                 # start of comment - need to find the end
                 try:
                     ip = tokens.index(")", ip) + 1
@@ -154,13 +167,16 @@ class FourthInterpreter:
                         "'(' is missing the closing ')' to end the comment"
                     )
             elif t == ":":
+                # starting a function definition
                 self.function_name = next_token().lower()
                 self.state = State.DEF
             elif t == ";":
+                # ending a function definition
                 if self.function_name in self.words:
                     logger.debug("redefining function: %s", self.function_name)
                 self.words[self.function_name] = self.function_definition.copy()
                 self.function_name = None
+                # back to running
                 self.state = State.RUN
             elif self.state == State.RUN:
                 if t == '."':
@@ -225,6 +241,7 @@ class FourthInterpreter:
                             logger.error("unknown word: %s", t)
 
             elif self.state == State.DEF:
+                # we're inside a function definition
                 if t == "if":
                     self.function_definition.append("0branch")
                     self.stack.append(len(self.function_definition))
@@ -284,11 +301,15 @@ class FourthInterpreter:
             if "\\" in line_tokens:
                 line_tokens = line_tokens[: line_tokens.index("\\")]
             tokens += line_tokens
+        # run the resulting tokens
         self.run(tokens)
         logger.debug(self.stack)
 
 
 if __name__ == "__main__":
-    interp = FourthInterpreter()
+    print("SnakeForth forth interpreter")
+    # create our interpreter and parse the demo program
+    interp = ForthInterpreter()
     interp.parse(DEMO_PROGRAM)
+    # start the repl
     repl(interp)
