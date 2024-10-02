@@ -96,8 +96,3 @@ def test_comments():
     assert fi.stack == [8]
     fi.parse("10 \\ this is a line comment")
     assert fi.stack == [8, 10]
-
-
-
-
-

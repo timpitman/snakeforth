@@ -38,7 +38,8 @@ def test_factorial(factorial_function):
 
 def test_nested_control_structures():
     fi = ForthInterpreter()
-    fi.parse("""
+    fi.parse(
+        """
     : nested-test
       10 0
       BEGIN
@@ -58,6 +59,7 @@ def test_nested_control_structures():
         OVER 0 =
       UNTIL
     ;
-    """)
+    """
+    )
     fi.parse("nested-test")
     assert fi.stack == [5, 0, 3]

@@ -40,7 +40,8 @@ def repl(interpreter):
 
 
 class State(Enum):
-    """ model the interpreter state - running or defining"""
+    """model the interpreter state - running or defining"""
+
     RUN = auto()  # running
     DEF = auto()  # defining
 
@@ -59,7 +60,7 @@ class ForthInterpreter:
         self.define_builtins()
 
     def define_builtins(self):
-        """ define our built-in stack functions """
+        """define our built-in stack functions"""
         self.define_word("+", lambda x, y: (x + y,))
         self.define_word("-", lambda x, y: (x - y,))
         self.define_word("*", lambda x, y: (x * y,))
